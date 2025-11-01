@@ -1,0 +1,35 @@
+{
+  "voice": {
+    "tts_rate": 175,
+    "tts_volume": 0.9,
+    "stt_model": "base",
+    "wake_word_enabled": false,
+    "wake_word": "jarvis",
+    "hotkey": "ctrl+space",
+    "auto_speak": true
+  },
+  "models": {
+    "default_model": "phi3:3.8b",
+    "coding_model": "deepseek-coder:6.7b",
+    "creative_model": "phi3:3.8b",
+    "fast_model": "gemma:2b",
+    "lightweight_model": "gemma:2b",
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 2048
+  },
+  "app": {
+    "startup_enabled": false,
+    "system_tray_enabled": true,
+    "gui_theme": "dark",
+    "log_level": "INFO",
+    "memory_limit": 100,
+    "auto_cleanup": true
+  },
+  "web": {
+    "headless_browser": true,
+    "browser_timeout": 30,
+    "max_search_results": 5,
+    "enable_web_agent": false
+  }
+}

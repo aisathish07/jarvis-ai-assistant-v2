@@ -359,7 +359,7 @@ async def interactive_mode():
         await jarvis.cleanup()
         print("👋 Systems offline.\n")
 
-async def demo_.mode():
+async def demo_mode():
     """Demo mode showcasing features."""
     jarvis = await create_jarvis(enable_voice=False)
     print("\n🚀 JARVIS Demo Mode\n")

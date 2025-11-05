@@ -1,4 +1,4 @@
-"""
+""
 ═══════════════════════════════════════════════════════════════════════════════
 FILE: jarvis_core_optimized.py
 DESCRIPTION: COMPLETE UNIFIED JARVIS CORE - All systems integrated
@@ -38,10 +38,16 @@ except ImportError:
     SKILLS_AVAILABLE = False
 
 try:
-    from jarvis_app_controller import AppController
-    APP_CONTROLLER_AVAILABLE = True
+    from jarvis_app_control import AppControlIntegration
+    APP_CONTROL_AVAILABLE = True
 except ImportError:
-    APP_CONTROLLER_AVAILABLE = False
+    APP_CONTROL_AVAILABLE = False
+
+try:
+    from jarvis_scheduler import ReminderScheduler
+    SCHEDULER_AVAILABLE = True
+except ImportError:
+    SCHEDULER_AVAILABLE = False
 
 try:
     from jarvis_app_scanner import AppManager
@@ -50,16 +56,16 @@ except ImportError:
     APP_SCANNER_AVAILABLE = False
 
 try:
+    from jarvis_app_controller import AppController
+    APP_CONTROLLER_AVAILABLE = True
+except ImportError:
+    APP_CONTROLLER_AVAILABLE = False
+
+try:
     from jarvis_web_agent import WebAgent
     WEB_AGENT_AVAILABLE = True
 except ImportError:
     WEB_AGENT_AVAILABLE = False
-
-try:
-    from jarvis_voice_io import OptimizedVoiceIO
-    VOICE_IO_AVAILABLE = True
-except ImportError:
-    VOICE_IO_AVAILABLE = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,6 +88,7 @@ class OptimizedMemoryManager:
         logger.debug("Memory manager initialized (in-memory mode)")
     
     async def save(self, user: str, assistant: str, model: str = "auto"):
+        """Save conversation to memory."""
         user = user[:200] + "..." if len(user) > 200 else user
         assistant = assistant[:300] + "..." if len(assistant) > 300 else assistant
         self.conversations.append((user, assistant, model))
@@ -89,6 +96,7 @@ class OptimizedMemoryManager:
             self.conversations.pop(0)
 
     async def save_summary(self, summary: str):
+        """Save a conversation summary."""
         self.current_summary = summary
         self.summary_history.append(summary)
         if len(self.summary_history) > 5:
@@ -96,15 +104,18 @@ class OptimizedMemoryManager:
         logger.info(f"📝 New context summary stored: {summary[:70]}...")
 
     async def get_summary(self) -> Optional[str]:
+        """Get the current conversation summary."""
         return self.current_summary
     
     async def get_recent(self, limit: int = 3) -> List[Tuple[str, str]]:
+        """Get recent conversations."""
         if not self.conversations:
             return []
         recent = self.conversations[-limit:]
         return [(user, assistant) for user, assistant, _ in recent]
 
     async def cleanup(self):
+        """Cleanup memory."""
         self.conversations.clear()
         self.summary_history.clear()
         self.current_summary = None
@@ -115,13 +126,15 @@ class OptimizedMemoryManager:
 # ============================================================================
 
 class JarvisOptimizedCore:
+    """Complete JARVIS system with all components integrated."""
     
     def __init__(self, enable_voice: bool = True):
         self.memory = OptimizedMemoryManager()
-        self.voice = OptimizedVoiceIO(enabled=enable_voice) if VOICE_IO_AVAILABLE else None
+        # self.voice = OptimizedVoiceIO(enabled=enable_voice) # Voice IO can be added back here
         
         self.turbo = OptimizedTurboManager() if TURBO_AVAILABLE else None
         self.skill_manager = SkillManager() if SKILLS_AVAILABLE else None
+        self.app_control = AppControlIntegration() if APP_CONTROL_AVAILABLE else None
         self.reminder_scheduler = ReminderScheduler() if SCHEDULER_AVAILABLE else None
         self.app_scanner = AppManager() if APP_SCANNER_AVAILABLE else None
         self.app_controller = AppController() if APP_CONTROLLER_AVAILABLE else None
@@ -133,6 +146,7 @@ class JarvisOptimizedCore:
         self.queries_since_last_summary = 0
     
     async def initialize(self):
+        """Initialize all JARVIS systems."""
         logger.info("🚀 Initializing JARVIS Optimized Core")
         if self.turbo:
             await self.turbo.initialize()
@@ -146,11 +160,12 @@ class JarvisOptimizedCore:
         logger.info("✅ JARVIS Ready!")
     
     def _on_reminder(self, message: str):
+        """Callback for reminder notifications."""
         logger.info(f"⏰ Reminder: {message}")
-        if self.voice:
-            asyncio.create_task(self.voice.speak(message))
+        # asyncio.create_task(self.voice.speak(message))
 
     async def _create_and_store_summary(self):
+        """Generate and store a summary of recent conversation."""
         if not self.turbo:
             return
 
@@ -171,6 +186,7 @@ class JarvisOptimizedCore:
             logger.error(f"Failed to generate summary: {e}")
 
     def _build_prompt(self, user: str, context: List[Tuple[str, str]], summary: Optional[str]) -> str:
+        """Build optimized prompt with context and summary."""
         parts = []
         if summary:
             parts.append(f"This is a summary of the conversation so far: {summary}\n")
@@ -182,6 +198,7 @@ class JarvisOptimizedCore:
         return "\n".join(parts)
 
     async def open_application(self, app_name: str) -> str:
+        """Open an application."""
         if not self.app_scanner:
             return "Application scanner not available."
 
@@ -197,6 +214,7 @@ class JarvisOptimizedCore:
             return f"Failed to open application {match}."
 
     async def web_search(self, query: str) -> str:
+        """Perform a web search."""
         if not self.web_agent:
             return "Web agent not available."
 
@@ -210,12 +228,14 @@ class JarvisOptimizedCore:
         return response
 
     async def execute_app_command(self, app_name: str, command: str, params: dict) -> str:
+        """Execute a command for an application."""
         if not self.app_controller:
             return "Application controller not available."
 
         return self.app_controller.execute_command(app_name, command, **params)
 
     async def _ai_query(self, user_input: str, model: Optional[str] = None):
+        """Query AI model with context and stream the response."""
         context = await self.memory.get_recent(1)
         summary = await self.memory.get_summary()
         prompt = self._build_prompt(user_input, context, summary)
@@ -224,6 +244,7 @@ class JarvisOptimizedCore:
             yield chunk
 
     async def process_query(self, user_input: str, speak: bool = True, model: Optional[str] = None, stream: bool = False) -> str:
+        """Main query processing pipeline."""
         start_time = time.perf_counter()
         self.stats["total_queries"] += 1
         logger.info(f"📥 Query #{self.stats['total_queries']}: {user_input[:50]}...")
@@ -265,9 +286,9 @@ class JarvisOptimizedCore:
         if self.skill_manager:
             skill_response = await self.skill_manager.handle(user_input, self)
             if skill_response:
-                logger.info(f"🎯 Handled by skill.")
+                logger.info("🎯 Handled by skill.")
                 print(f"\n🤖 JARVIS> {skill_response}\n")
-                if speak and self.voice: await self.voice.speak(skill_response)
+                # if speak: await self.voice.speak(skill_response)
                 return skill_response
 
         # Step 4: Fall back to AI
@@ -286,12 +307,13 @@ class JarvisOptimizedCore:
                 print(full_response)
             
             await self.memory.save(user_input, full_response, "ai_query")
-            if speak and self.voice: await self.voice.speak(full_response)
+            # if speak: await self.voice.speak(full_response)
             return full_response
         
         return "No AI or skills available to handle the request."
 
     async def cleanup(self):
+        """Cleanup all systems."""
         logger.info("🧹 Cleaning up JARVIS...")
         if self.turbo:
             await self.turbo.shutdown()
@@ -307,13 +329,47 @@ class JarvisOptimizedCore:
 # ============================================================================
 
 async def create_jarvis(enable_voice: bool = True):
+    """Create and initialize JARVIS instance."""
     jarvis = JarvisOptimizedCore(enable_voice=enable_voice)
     await jarvis.initialize()
     return jarvis
 
+async def interactive_mode():
+    """Interactive JARVIS experience."""
+    jarvis = await create_jarvis()
+    print("\n" + "="*60)
+    print("🤖 JARVIS - Optimized Core")
+    print("="*60)
+    print("\n💡 Type /exit to quit, /status for system info.")
+    print("="*60 + "\n")
+    
+    try:
+        while True:
+            user_input = input("You> ").strip()
+            if not user_input:
+                continue
+            if user_input.lower() in ["/exit", "/quit"]:
+                break
+            
+            print("🤔 Processing...")
+            await jarvis.process_query(user_input, stream=True)
+    except KeyboardInterrupt:
+        print("\n\nInterrupted!")
+    finally:
+        await jarvis.cleanup()
+        print("👋 Systems offline.\n")
 
-
-
+async def demo_.mode():
+    """Demo mode showcasing features."""
+    jarvis = await create_jarvis(enable_voice=False)
+    print("\n🚀 JARVIS Demo Mode\n")
+    demos = ["Hello!", "What can you do?", "What's the weather like?", "Write a Python hello world"]
+    for query in demos:
+        print(f"You: {query}")
+        response = await jarvis.process_query(query, speak=False)
+        print(f"JARVIS: {response}\n")
+        await asyncio.sleep(1)
+    await jarvis.cleanup()
 
 # Keep old class name for backward compatibility
 JarvisIntegrated = JarvisOptimizedCore

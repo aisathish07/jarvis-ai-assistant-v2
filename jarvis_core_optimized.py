@@ -1,5 +1,4 @@
-""
-═══════════════════════════════════════════════════════════════════════════════
+
 FILE: jarvis_core_optimized.py
 DESCRIPTION: COMPLETE UNIFIED JARVIS CORE - All systems integrated
 OPTIMIZED FOR: i5-13th Gen + RTX 3050 4GB + 16GB RAM
@@ -11,8 +10,7 @@ FEATURES:
 - Non-blocking TTS
 - Optimized memory management
 - Context summarization
-═══════════════════════════════════════════════════════════════════════════════
-"
+
 
 import asyncio
 import logging

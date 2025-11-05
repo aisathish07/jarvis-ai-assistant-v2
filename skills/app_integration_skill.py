@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 sys.path.append(str(Path(__file__).parent.parent))
-from attic.plugin_system import BaseSkill
+from jarvis_skills import BaseSkill
+from jarvis_app_controller import AppController
 
 logger = logging.getLogger("AI_Assistant.AppIntegrationSkill")
 
@@ -36,8 +37,6 @@ class AppIntegrationSkill(BaseSkill):
         """Lazy load app controller."""
         if not self._controller_loaded:
             try:
-                from attic.app_controller import AppController
-
                 # instantiate in thread to avoid heavy imports blocking loop if called from async
                 self.controller = AppController()
                 self._controller_loaded = True

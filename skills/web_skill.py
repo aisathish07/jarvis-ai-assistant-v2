@@ -1,8 +1,8 @@
 import re, os
-from skill_bus import BaseSkill
-from web_agent_lazy import WebAgentLazy
+from jarvis_skills import BaseSkill
+from jarvis_web_agent import WebAgent
 
-agent = WebAgentLazy()
+agent = WebAgent()
 
 
 class WebSkill(BaseSkill):

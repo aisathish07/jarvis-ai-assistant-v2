@@ -127,7 +127,8 @@ class AdvancedVRAMManager:
                 "cpu_speed": "fast",
                 "specialties": ["quick", "general", "summarization"],
                 "strengths": ["Fast", "Lightweight"],
-                "best_for": ["Quick questions", "Summaries"]
+                "best_for": ["Quick questions", "Summaries"],
+                "context_window": 2048
             },
             "phi3:3.8b": {
                 "vram": 2.2,
@@ -135,7 +136,8 @@ class AdvancedVRAMManager:
                 "cpu_speed": "medium",
                 "specialties": ["general", "reasoning", "coding"],
                 "strengths": ["Balanced", "Good reasoning"],
-                "best_for": ["General chat", "Analysis"]
+                "best_for": ["General chat", "Analysis"],
+                "context_window": 4096
             },
             "deepseek-coder:6.7b": {
                 "vram": 3.8,
@@ -143,7 +145,8 @@ class AdvancedVRAMManager:
                 "cpu_speed": "slow",
                 "specialties": ["coding", "programming", "technical"],
                 "strengths": ["Excellent code", "Technical"],
-                "best_for": ["Programming", "Code review"]
+                "best_for": ["Programming", "Code review"],
+                "context_window": 16384
             },
             "mistral:7b": {
                 "vram": 4.1,
@@ -151,7 +154,8 @@ class AdvancedVRAMManager:
                 "cpu_speed": "slow",
                 "specialties": ["creative", "writing", "reasoning"],
                 "strengths": ["Creative writing", "Strong reasoning"],
-                "best_for": ["Creative tasks", "Complex reasoning"]
+                "best_for": ["Creative tasks", "Complex reasoning"],
+                "context_window": 8192
             },
             "dolphin-llama3:8b": {
                 "vram": 4.7,
@@ -159,7 +163,8 @@ class AdvancedVRAMManager:
                 "cpu_speed": "slow",
                 "specialties": ["creative", "chat", "roleplay", "uncensored"],
                 "strengths": ["Excellent conversation", "Creative", "Less restricted"],
-                "best_for": ["Chat", "Creative writing", "Uncensored content"]
+                "best_for": ["Chat", "Creative writing", "Uncensored content"],
+                "context_window": 8192
             },
             "mannix/dolphin-2.9-llama3-8b:latest": {
                 "vram": 4.7,
@@ -167,7 +172,8 @@ class AdvancedVRAMManager:
                 "cpu_speed": "slow",
                 "specialties": ["creative", "instruction", "uncensored"],
                 "strengths": ["Detailed responses", "Less restricted"],
-                "best_for": ["Detailed writing", "Uncensored content"]
+                "best_for": ["Detailed writing", "Uncensored content"],
+                "context_window": 8192
             }
         }
         
@@ -286,6 +292,9 @@ class AdvancedVRAMManager:
         if len(prompt.split()) <= 3:
             scores["quick"] = max(scores.get("quick", 0), 0.9)
         
+        if len(prompt.split()) > 200:
+            scores["long"] = 0.9
+        
         # Regex patterns for specific tasks
         if re.search(r"write.*code|create.*function|implement.*algorithm", prompt_lower):
             scores["coding"] = max(scores.get("coding", 0), 0.9)
@@ -309,7 +318,20 @@ class AdvancedVRAMManager:
             # Fallback
             return "phi3:3.8b", "cpu", "uncensored", task_scores
         
-        # Priority 2: Coding tasks
+        # Priority 2: Long tasks
+        if task_scores.get("long", 0) > 0.5:
+            logger.info("🎯 Long prompt - routing to model with large context window")
+            # Sort models by context window size in descending order
+            sorted_models = sorted(self.model_database.items(), key=lambda item: item[1].get('context_window', 0), reverse=True)
+            for model_name, model_info in sorted_models:
+                if self.can_load_model_on_gpu(model_name):
+                    return model_name, "gpu", "long", task_scores
+            # Fallback to CPU if no model fits on GPU
+            for model_name, model_info in sorted_models:
+                if self.can_load_model_on_cpu(model_name):
+                    return model_name, "cpu", "long", task_scores
+
+        # Priority 3: Coding tasks
         if task_scores.get("coding", 0) > 0.5:
             if vram > 3.9:
                 return "deepseek-coder:6.7b", "gpu", "coding", task_scores

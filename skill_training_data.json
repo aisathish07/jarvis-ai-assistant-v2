@@ -1,9 +1,18 @@
 [
-  {"text": "what's the weather like?", "intent": "weather"},
   {"text": "do I need a jacket?", "intent": "weather"},
   {"text": "what's the temperature?", "intent": "weather"},
   {"text": "tell me the forecast", "intent": "weather"},
   {"text": "is it going to rain today?", "intent": "weather"},
+  {"text": "what is AI", "intent": "general"},
+  {"text": "tell me something interesting", "intent": "general"},
+  {"text": "who are you", "intent": "general"},
+  {"text": "what is your purpose", "intent": "general"},
+  {"text": "hello", "intent": "general"},
+  {"text": "hi", "intent": "general"},
+  {"text": "write a python function to add two numbers", "intent": "coding"},
+  {"text": "show me an example of a for loop in python", "intent": "coding"},
+  {"text": "how do I declare a variable in java", "intent": "coding"},
+  {"text": "whats the weather like?", "intent": "weather"},
   {"text": "play some music", "intent": "media"},
   {"text": "play a song", "intent": "media"},
   {"text": "start the music", "intent": "media"},
@@ -30,5 +39,10 @@
   {"text": "execute the tests", "intent": "test"},
   {"text": "test the system", "intent": "test"},
   {"text": "use the ai tool", "intent": "ai_tool"},
-  {"text": "ask the ai", "intent": "ai_tool"}
+  {"text": "ask the ai", "intent": "ai_tool"},
+  {"text": "tell me about ai", "intent": "general"},
+  {"text": "what is the capital of France", "intent": "general"},
+  {"text": "who is the president of the USA", "intent": "general"},
+  {"text": "what is the meaning of life", "intent": "general"},
+  {"text": "tell me a fact", "intent": "general"}
 ]

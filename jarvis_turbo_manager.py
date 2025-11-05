@@ -548,9 +548,10 @@ class OptimizedOllamaClient:
         prompt: str,
         system: Optional[str] = None,
         max_tokens: int = 1024,
-        temperature: float = 0.7
-    ) -> str:
-        """Query Ollama with retries"""
+        temperature: float = 0.7,
+        stream: bool = False
+    ):
+        """Query Ollama with retries, now supports streaming."""
         await self._ensure_session()
         
         # Truncate long prompts
@@ -560,7 +561,7 @@ class OptimizedOllamaClient:
         payload = {
             "model": model,
             "messages": [],
-            "stream": False,
+            "stream": stream,
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,
@@ -573,35 +574,28 @@ class OptimizedOllamaClient:
             payload["messages"].append({"role": "system", "content": system})
         payload["messages"].append({"role": "user", "content": prompt})
         
-        # Retry logic
-        for attempt in range(2):
-            try:
-                start = time.perf_counter()
-                async with self._session.post("http://localhost:11434/api/chat", json=payload) as resp:
-                    if resp.status == 200:
+        try:
+            start = time.perf_counter()
+            async with self._session.post("http://localhost:11434/api/chat", json=payload) as resp:
+                if resp.status == 200:
+                    if stream:
+                        async for line in resp.content:
+                            if line:
+                                yield json.loads(line)
+                        elapsed = (time.perf_counter() - start) * 1000
+                        logger.info(f"⚡ {model} stream finished in {elapsed:.0f}ms")
+                    else:
                         data = await resp.json()
                         elapsed = (time.perf_counter() - start) * 1000
                         logger.info(f"⚡ {model} responded in {elapsed:.0f}ms")
-                        return data["message"]["content"].strip()
-                    else:
-                        logger.error(f"HTTP {resp.status} from {model}")
-                        if attempt == 0:
-                            continue
-                        return "Model error - please try again"
-            
-            except asyncio.TimeoutError:
-                if attempt == 0:
-                    logger.warning(f"Timeout on {model}, retrying...")
-                    continue
-                return "Request timeout - try a simpler query"
-            
-            except Exception as e:
-                logger.error(f"Query error: {e}")
-                if attempt == 0:
-                    continue
-                return f"Error: {str(e)[:100]}"
+                        yield data # Yield a single dictionary for non-stream
+                else:
+                    logger.error(f"HTTP {resp.status} from {model}")
+                    yield {"error": "Model error - please try again"}
         
-        return "Error: Max retries exceeded"
+        except Exception as e:
+            logger.error(f"Query error: {e}")
+            yield {"error": f"Error: {str(e)[:100]}"}
     
     async def close(self):
         """Close session"""
@@ -663,9 +657,10 @@ class OptimizedTurboManager:
         self,
         prompt: str,
         model: Optional[str] = None,
-        system: Optional[str] = None
-    ) -> str:
-        """Smart query with optimal model selection"""
+        system: Optional[str] = None,
+        stream: bool = False
+    ):
+        """Smart query with optimal model selection, now supports streaming."""
         start_time = time.perf_counter()
         
         # Auto-select model if not specified
@@ -679,7 +674,8 @@ class OptimizedTurboManager:
         # Load model
         success = await self.model_cache.smart_load_model(model, device)
         if not success:
-            return "Error: Could not load model"
+            yield {"error": "Could not load model"}
+            return
         
         # Track stats
         if device == "cpu":
@@ -689,8 +685,9 @@ class OptimizedTurboManager:
         
         self._query_stats["model_usage"][model] = self._query_stats["model_usage"].get(model, 0) + 1
         
-        # Execute query
-        response = await self.ollama_client.query(model, prompt, system, max_tokens=1024)
+        # Execute query and stream results
+        async for chunk in self.ollama_client.query(model, prompt, system, max_tokens=1024, stream=stream):
+            yield chunk
         
         # Update stats
         elapsed = (time.perf_counter() - start_time) * 1000
@@ -698,8 +695,6 @@ class OptimizedTurboManager:
         self._query_stats["total_time"] += elapsed
         
         logger.info(f"⚡ Query #{self._query_stats['total_queries']}: {elapsed:.0f}ms with {model} on {device.upper()}")
-        
-        return response
     
     async def switch_profile(self, profile: TurboProfile) -> str:
         """Switch performance profile"""

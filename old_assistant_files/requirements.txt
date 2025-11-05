@@ -1,0 +1,101 @@
+# ==================  JARVIS STANDALONE ASSISTANT  ==================
+# Optimized for MSI Thin 15 B13UC (16GB RAM, RTX 3050)
+# Enhanced version with better dependency management
+# =====================================================
+
+# ========== Core Dependencies ==========
+apscheduler>=3.10.4
+pyautogui>=0.9.54
+pyttsx3>=2.90
+SpeechRecognition>=3.10.0
+pyaudio>=0.2.13
+openai-whisper>=20231117
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+spacy>=3.7.2
+dateparser>=1.2.0
+plyer>=2.1.0
+pynput>=1.7.6
+pygetwindow>=0.0.9
+websocket-client>=1.6.0
+browser-cookie3>=0.19.1
+scikit-learn>=1.4.0
+pandas>=2.2.0
+numpy>=1.26.0
+joblib>=1.3.2
+aiohttp>=3.9.4
+python-dotenv>=1.0.0
+certifi>=2023.7.22
+rapidfuzz>=3.6.0
+spacy>=3.8.0
+
+# ========== GUI & Widgets ==========
+customtkinter>=5.2.2
+Pillow>=10.0.0
+pystray>=0.19.5  # System tray support
+keyboard>=0.13.5  # Global hotkeys
+
+# ========== Audio & Speech ==========
+pvporcupine>=2.2.2
+gTTS>=2.4.0
+openwakeword>=0.5.1
+sounddevice>=0.4.6
+webrtcvad>=2.0.10
+
+# ========== Optional: ElevenLabs TTS ==========
+elevenlabs>=1.0.0  # Better quality TTS (requires API key)
+
+# ========== Web Agent (Optimized for 16GB RAM) ==========
+playwright>=1.40.0
+psutil>=5.9.0
+opencv-python>=4.8.0  # For vision features
+
+# ========== Windows-Specific ==========
+pywin32>=306; sys_platform == "win32"
+comtypes>=1.2.0; sys_platform == "win32"
+pycaw>=20231129; sys_platform == "win32"
+win11toast>=0.34; sys_platform == "win32"
+
+# ========== Build Tools ==========
+pyinstaller>=6.0.0  # For creating .exe
+
+# ========== Optional: Local LLM ==========
+# Uncomment if you want to use Ollama locally:
+ollama>=0.1.0
+
+# ========== Development Tools (Optional) ==========
+black>=23.0.0
+pylint>=3.0.0
+pytest>=7.4.0
+
+# ========== Performance Monitoring ==========
+memory-profiler>=0.60.0  # Optional: for memory profiling
+py-spy>=0.3.14  # Optional: for performance profiling
+
+# ========== Security & Validation ==========
+cryptography>=41.0.0  # For secure credential storage
+keyring>=24.0.0  # For system credential storage
+
+# ==================  INSTALLATION NOTES  ==================
+# After installing requirements, run:
+#
+# 1. python -m spacy download en_core_web_sm
+# 2. playwright install chromium
+# 3. python build_exe.py  # To create standalone .exe
+#
+# For MSI Thin 15 B13UC (your system):
+# - WEB_AGENT_MODE=balanced (recommended)
+# - WHISPER_MODEL_SIZE=base (good balance)
+# - Enable GPU acceleration for Whisper (automatic with CUDA)
+#
+# GPU Optimization:
+# - Your RTX 3050 4GB will automatically accelerate:
+#   * Whisper speech recognition
+#   * Browser rendering (via Chromium GPU)
+#   * Future vision AI features
+#
+# Performance Tips:
+# - Use --no-deps flag when installing large packages to skip unnecessary dependencies
+# - Consider using pip's --target flag for isolated installations
+# - Monitor memory usage during initial setup
+# =========================================================

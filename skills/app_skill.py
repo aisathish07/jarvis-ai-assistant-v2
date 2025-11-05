@@ -1,15 +1,11 @@
-from jarvis_skills import BaseSkill
-import asyncio
+import re, subprocess, shutil
+from skill_bus import BaseSkill
 
-class Skill(BaseSkill):
-    name = "app"
-    keywords = ["open", "launch", "play", "close"]
-
-    async def handle(self, text, jarvis):
-        """Use the integrated AppControl to open or control apps."""
-        try:
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(None, jarvis.app_control.parse_command, text)
-            return result or "Could not perform app action."
-        except Exception as e:
-            return f"App skill error: {e}"
+class AppSkill(BaseSkill):
+    intent_regex = re.compile(r"open\s+(.+)", re.I)
+    def handle(self, match):
+        app = match.group(1).strip()
+        if shutil.which(app):
+            subprocess.Popen([app], shell=True)
+            return f"Opening {app}"
+        return f"Sorry, {app} not found"

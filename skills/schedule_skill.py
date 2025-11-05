@@ -21,7 +21,7 @@ class Skill(BaseSkill):
     name = "schedule"
     keywords = [
         "remind", "reminder", "event", "meeting", "calendar", "schedule",
-        "in", "tomorrow", "today", "next", "cancel", "every",
+        "tomorrow", "today", "next", "cancel", "every",
         "weekday", "weekend", "agenda", "what's on"
     ]
 

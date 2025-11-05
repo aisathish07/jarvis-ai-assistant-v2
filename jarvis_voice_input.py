@@ -14,6 +14,10 @@ import threading
 from typing import Optional, Callable
 import numpy as np
 from jarvis_core_optimized import JarvisIntegrated
+from jarvis_config import ConfigManager
+import openwakeword as oww
+import pyaudio
+
 logger = logging.getLogger("Jarvis.Voice")
 
 try:
@@ -87,52 +91,69 @@ class AudioRecorder:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# WAKE WORD DETECTOR (Simple energy-based)
+# WAKE WORD DETECTOR (openwakeword)
 # ═══════════════════════════════════════════════════════════════════════════
 
 class WakeWordDetector:
-    """Simple energy-based wake word detection"""
+    """Wake word detection using openwakeword"""
     
-    def __init__(self, threshold: float = 0.02, sample_rate: int = 16000):
-        self.threshold = threshold
+    def __init__(self, wake_word_model: str, wake_word_name: str, sample_rate: int = 16000):
         self.sample_rate = sample_rate
+        self.wake_word_name = wake_word_name
         self.is_listening = False
         self.callback = None
+        self.audio = pyaudio.PyAudio()
+        
+        # Load openwakeword model
+        try:
+            self.oww_model = oww.Model(wakeword_models=[wake_word_model])
+            logger.info(f"Loaded openwakeword model: {wake_word_model}")
+        except Exception as e:
+            logger.error(f"Failed to load openwakeword model: {e}")
+            self.oww_model = None
     
     def set_callback(self, callback: Callable):
         """Set callback function for wake word detection"""
         self.callback = callback
     
-    def calculate_energy(self, audio_chunk: np.ndarray) -> float:
-        """Calculate RMS energy of audio chunk"""
-        return np.sqrt(np.mean(audio_chunk ** 2))
-    
-    def audio_callback(self, indata, frames, time, status):
-        """Process audio stream for wake word"""
-        if not self.is_listening:
-            return
-        
-        # Calculate energy
-        energy = self.calculate_energy(indata)
-        
-        # Simple energy threshold detection
-        if energy > self.threshold:
-            logger.info("🎯 Wake word detected!")
-            if self.callback:
-                self.callback()
-    
     def start_listening(self):
         """Start listening for wake word"""
-        self.is_listening = True
-        logger.info("👂 Listening for wake word...")
+        if not self.oww_model:
+            logger.error("openwakeword model not loaded. Cannot start listening.")
+            return
         
-        with sd.InputStream(
+        self.is_listening = True
+        logger.info(f"👂 Listening for wake word '{self.wake_word_name}'...")
+        
+        # Open audio stream
+        stream = self.audio.open(
+            format=pyaudio.paInt16,
             channels=1,
-            samplerate=self.sample_rate,
-            callback=self.audio_callback
-        ):
-            while self.is_listening:
-                sd.sleep(100)
+            rate=self.sample_rate,
+            input=True,
+            frames_per_buffer=1280  # OWW recommended buffer size
+        )
+        
+        while self.is_listening:
+            try:
+                audio_chunk = stream.read(stream.get_read_available(), exception_on_overflow=False)
+                audio_chunk = np.frombuffer(audio_chunk, dtype=np.int16)
+                
+                # Process audio with openwakeword
+                predictions = self.oww_model.predict(audio_chunk)
+                
+                if self.wake_word_name in predictions and predictions[self.wake_word_name] > 0.5: # Adjust threshold as needed
+                    logger.info(f"🎯 Wake word '{self.wake_word_name}' detected!")
+                    if self.callback:
+                        self.callback()
+                        # After wake word, stop listening temporarily to allow command processing
+                        self.stop_listening()
+                        break
+            except Exception as e:
+                logger.error(f"Error in wake word detection stream: {e}")
+        
+        stream.stop_stream()
+        stream.close()
     
     def stop_listening(self):
         """Stop listening"""
@@ -148,8 +169,20 @@ class VoiceInputManager:
     """Complete voice input system"""
     
     def __init__(self, whisper_model=None):
+        self.config = ConfigManager()
         self.recorder = AudioRecorder()
-        self.wake_word = WakeWordDetector()
+        self.wake_word_enabled = self.config.get('voice.wake_word_enabled', False)
+        self.wake_word_name = self.config.get('voice.wake_word', 'jarvis')
+        self.wake_word_model = self.config.get('voice.wake_word_model', 'hey_jarvis_v0.1') # Default OWW model
+        
+        if self.wake_word_enabled:
+            self.wake_word_detector = WakeWordDetector(
+                wake_word_model=self.wake_word_model,
+                wake_word_name=self.wake_word_name
+            )
+        else:
+            self.wake_word_detector = None
+            
         self.whisper_model = whisper_model
         self.is_active = False
         self.on_speech_callback = None
@@ -161,9 +194,6 @@ class VoiceInputManager:
     def on_wake_word_detected(self):
         """Handle wake word detection"""
         logger.info("Processing voice input...")
-        
-        # Stop wake word detection temporarily
-        self.wake_word.stop_listening()
         
         # Record user speech
         audio_file = self.recorder.record_for_duration(duration=5.0)
@@ -189,31 +219,35 @@ class VoiceInputManager:
             except Exception as e:
                 logger.error(f"Transcription failed: {e}")
         
-        # Resume wake word detection
-        if self.is_active:
+        # Resume wake word detection if still active
+        if self.is_active and self.wake_word_enabled and self.wake_word_detector:
             threading.Thread(
-                target=self.wake_word.start_listening,
+                target=self.wake_word_detector.start_listening,
                 daemon=True
             ).start()
     
     def start(self):
         """Start voice input system"""
         self.is_active = True
-        self.wake_word.set_callback(self.on_wake_word_detected)
-        
-        # Start wake word detection in background thread
-        thread = threading.Thread(
-            target=self.wake_word.start_listening,
-            daemon=True
-        )
-        thread.start()
-        
-        logger.info("✓ Voice input system started")
+        if self.wake_word_enabled and self.wake_word_detector:
+            self.wake_word_detector.set_callback(self.on_wake_word_detected)
+            
+            # Start wake word detection in background thread
+            thread = threading.Thread(
+                target=self.wake_word_detector.start_listening,
+                daemon=True
+            )
+            thread.start()
+            
+            logger.info("✓ Voice input system started with wake word detection")
+        else:
+            logger.info("✓ Voice input system started (wake word disabled)")
     
     def stop(self):
         """Stop voice input system"""
         self.is_active = False
-        self.wake_word.stop_listening()
+        if self.wake_word_detector:
+            self.wake_word_detector.stop_listening()
         logger.info("Voice input system stopped")
     
     def manual_record(self) -> Optional[str]:

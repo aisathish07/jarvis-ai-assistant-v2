@@ -7,7 +7,7 @@ DESCRIPTION: RTX 3050 optimized model routing
 
 import re
 from typing import Dict
-from jarvis_vram_manager import AdvancedVRAMManager
+from jarvis_turbo_manager import AdvancedVRAMManager
 
 class OptimizedModelRouter:
     """RTX 3050 optimized model router"""

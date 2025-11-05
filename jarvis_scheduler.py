@@ -1,48 +1,6 @@
-"""
-jarvis_scheduler.py
-──────────────────────────────────────────────
-Lightweight async scheduler for Jarvis.
-Used by reminder & schedule skills.
-"""
 
-import asyncio
-from datetime import datetime, timedelta
-from jarvis_core_optimized import JarvisIntegrated
 
-class Scheduler:
-    def __init__(self):
-        self.tasks = []
-        self.loop = asyncio.get_event_loop()
 
-    async def add_task(self, callback, run_at: datetime):
-        """Schedule a callback to run at a specific time."""
-        delay = (run_at - datetime.now()).total_seconds()
-        if delay < 0:
-            delay = 0
-        task = self.loop.create_task(self._delayed_run(callback, delay))
-        self.tasks.append(task)
-        return task
-
-    async def _delayed_run(self, callback, delay):
-        await asyncio.sleep(delay)
-        try:
-            if asyncio.iscoroutinefunction(callback):
-                await callback()
-            else:
-                callback()
-        except Exception as e:
-            print(f"[Scheduler Error] {e}")
-
-    def cancel_all(self):
-        """Cancel all scheduled tasks."""
-        for task in self.tasks:
-            if not task.done():
-                task.cancel()
-        self.tasks.clear()
-
-    def cleanup(self):
-        """Remove completed tasks."""
-        self.tasks = [t for t in self.tasks if not t.done()]
 """
 ═══════════════════════════════════════════════════════════════════════════════
 FILE: jarvis_scheduler.py
@@ -84,83 +42,45 @@ class Reminder:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class ReminderScheduler:
-    """Manages reminders and scheduled notifications"""
+    """Manages reminders and scheduled notifications in-memory"""
     
-    def __init__(self, db_path: str = "jarvis_memory.db"):
-        self.db_path = db_path
+    def __init__(self):
         self.reminders: List[Reminder] = []
         self.is_running = False
         self.check_thread = None
         self.callback = None
-        self.load_reminders()
+        self.next_id = 1
     
     def set_callback(self, callback: Callable[[str], None]):
         """Set callback for reminder notifications"""
         self.callback = callback
     
     def add_reminder(self, task: str, scheduled_time: datetime) -> Reminder:
-        """Add a new reminder"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "INSERT INTO reminders (task, scheduled_time, completed) VALUES (?, ?, ?)",
-            (task, scheduled_time.isoformat(), 0)
-        )
-        
-        reminder_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        reminder = Reminder(task, scheduled_time, reminder_id)
+        """Add a new reminder to the in-memory list"""
+        reminder = Reminder(task, scheduled_time, self.next_id)
+        self.next_id += 1
         self.reminders.append(reminder)
-        
         logger.info(f"Added reminder: {reminder}")
         return reminder
     
     def load_reminders(self):
-        """Load pending reminders from database"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "SELECT id, task, scheduled_time FROM reminders WHERE completed = 0"
-        )
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        self.reminders = []
-        for row in rows:
-            reminder_id, task, scheduled_time_str = row
-            scheduled_time = datetime.fromisoformat(scheduled_time_str)
-            self.reminders.append(Reminder(task, scheduled_time, reminder_id))
-        
-        logger.info(f"Loaded {len(self.reminders)} pending reminders")
+        """Load pending reminders from database - (no-op for in-memory)"""
+        logger.info("ReminderScheduler is in in-memory mode. No reminders loaded from disk.")
+        pass
     
     def mark_completed(self, reminder: Reminder):
-        """Mark reminder as completed"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "UPDATE reminders SET completed = 1 WHERE id = ?",
-            (reminder.id,)
-        )
-        
-        conn.commit()
-        conn.close()
-        
-        reminder.completed = True
-        self.reminders.remove(reminder)
-        
-        logger.info(f"Completed reminder: {reminder}")
+        """Mark reminder as completed by removing it from the list"""
+        try:
+            self.reminders.remove(reminder)
+            logger.info(f"Completed reminder: {reminder}")
+        except ValueError:
+            pass # Reminder might have been removed already
     
     def check_reminders(self):
         """Check for due reminders"""
         now = datetime.now()
         
-        for reminder in self.reminders[:]:
+        for reminder in self.reminders[:]: # Iterate over a copy
             if reminder.scheduled_time <= now:
                 logger.info(f"⏰ Reminder due: {reminder.task}")
                 

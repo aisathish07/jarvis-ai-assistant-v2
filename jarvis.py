@@ -17,9 +17,9 @@ import os
 import psutil
 
 # Import JARVIS modules
-from jarvis_core_optimized import interactive_mode, demo_mode, JarvisOptimizedCore
+from jarvis_core_optimized import JarvisOptimizedCore, create_jarvis
 from jarvis_install import JarvisInstaller, QuickTest
-from jarvis_config import ConfigManager, ConfigEditor
+from config import Config
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -57,7 +57,6 @@ def show_main_menu():
     print("  1️⃣  Start Interactive Chat (Optimized)")
     print("  2️⃣  Run Feature Demo")
     print("  3️⃣  Show System Status")
-    print("  4️⃣  Edit Configuration")
     print("  5️⃣  Install/Setup")
     print("  6️⃣  Run Tests")
     print("  7️⃣  Quick Query")
@@ -75,7 +74,6 @@ def show_help():
     print("  python jarvis.py chat      - Start optimized interactive chat")
     print("  python jarvis.py demo      - Run feature demo")
     print("  python jarvis.py status    - Show system status")
-    print("  python jarvis.py config    - Edit configuration")
     print("  python jarvis.py install   - Run installation")
     print("  python jarvis.py test      - Run diagnostics")
     print("  python jarvis.py \"question\" - Quick query")
@@ -127,22 +125,65 @@ def optimize_system():
         print(f"⚠️ System optimization failed: {e}")
 
 
+async def demo_mode():
+    """Demo mode showcasing features."""
+    jarvis = await create_jarvis(enable_voice=False)
+    print("\n🚀 JARVIS Demo Mode\n")
+    demos = ["Hello!", "What can you do?", "What's the weather like?", "Write a Python hello world"]
+    for query in demos:
+        print(f"You: {query}")
+        response = await jarvis.process_query(query, speak=False)
+        print(f"JARVIS: {response}\n")
+        await asyncio.sleep(1)
+    await jarvis.cleanup()
+
+
+async def interactive_mode():
+    """Interactive JARVIS experience."""
+    jarvis = await create_jarvis()
+    print("\n" + "="*60)
+    print("🤖 JARVIS - Optimized Core")
+    print("="*60)
+    print("\n💡 Type /exit to quit, /status for system info.")
+    print("="*60 + "\n")
+    
+    try:
+        while True:
+            user_input = input("You> ").strip()
+            if not user_input:
+                continue
+            if user_input.lower() in ["/exit", "/quit"]:
+                break
+            
+            print("🤔 Processing...")
+            await jarvis.process_query(user_input, stream=True)
+    except KeyboardInterrupt:
+        print("\n\nInterrupted!")
+    finally:
+        await jarvis.cleanup()
+        print("👋 Systems offline.\n")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # QUICK QUERY MODE
 # ═══════════════════════════════════════════════════════════════════════════
 
 async def quick_query_mode(query: str):
     """Quick query mode with optimization"""
-    from jarvis_core_optimized import quick_query
+    from jarvis_core_optimized import JarvisOptimizedCore
     
     print(f"\n🤔 Processing: {query}")
     print("⚡ Using RTX 3050 optimized mode...")
     
+    jarvis = JarvisOptimizedCore(enable_voice=False)
+    await jarvis.initialize()
     try:
-        result = await quick_query(query, profile="turbo_3050")
+        result = await jarvis.process_query(query, speak=False)
         print(f"\n✅ Response:\n{result}\n")
     except Exception as e:
         print(f"\n❌ Error: {e}\n")
+    finally:
+        await jarvis.cleanup()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -166,11 +207,6 @@ def run_command(command: str):
         print(jarvis.get_status())
         asyncio.run(jarvis.cleanup())
     
-    elif command == "config" or command == "4":
-        manager = ConfigManager()
-        editor = ConfigEditor(manager)
-        editor.interactive_menu()
-    
     elif command == "install" or command == "5":
         installer = JarvisInstaller()
         installer.run_full_installation()
@@ -178,6 +214,7 @@ def run_command(command: str):
     elif command == "test" or command == "6":
         QuickTest.test_ollama()
         QuickTest.test_imports()
+        QuickTest.test_core()
     
     elif command == "query" or command == "7":
         query = input("\nEnter your question: ").strip()
@@ -243,7 +280,7 @@ def main():
         command = sys.argv[1].lower()
         
         # Known commands
-        known_commands = ['chat', 'demo', 'status', 'config', 'install', 'test', 'help']
+        known_commands = ['chat', 'demo', 'status', 'install', 'test', 'help']
         
         if command in known_commands:
             # Execute command
@@ -271,4 +308,5 @@ def main():
 
 
 if __name__ == "__main__":
+    pass # Added to diagnose SyntaxError
     main()

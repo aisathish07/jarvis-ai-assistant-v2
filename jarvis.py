@@ -15,11 +15,17 @@ import sys
 import asyncio
 import os
 import psutil
+import queue
+from PyQt6.QtWidgets import QApplication
 
 # Import JARVIS modules
 from jarvis_core_optimized import JarvisOptimizedCore, create_jarvis
 from jarvis_install import JarvisInstaller, QuickTest
-from config import Config
+from wake_word import WakeWordDetector
+from jarvis_voice_input import VoiceInputManager
+from jarvis_desktop_app import JarvisDesktopApp
+import threading
+from jarvis_config import Config
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -146,10 +152,44 @@ async def interactive_mode():
     print("="*60)
     print("\n💡 Type /exit to quit, /status for system info.")
     print("="*60 + "\n")
+
+    voice_input = VoiceInputManager()
+    wake_word_queue = queue.Queue()
+
+    def on_wake_word_detected():
+        print("Wake word detected! Listening for command...")
+        wake_word_detector.pause()
+        command = voice_input.listen()
+        if command:
+            print(f"You: {command}")
+            # Since this is in a thread, we need to run the async code in the main event loop
+            asyncio.run_coroutine_threadsafe(jarvis.process_query(command, stream=True), asyncio.get_event_loop())
+        wake_word_detector.resume()
+
+    def wake_word_listener():
+        while True:
+            try:
+                message = wake_word_queue.get(timeout=1)
+                if message == "WAKE_WORD_DETECTED":
+                    on_wake_word_detected()
+            except queue.Empty:
+                continue
+
+    loop = asyncio.get_event_loop()
+    wake_word_detector = WakeWordDetector(
+        input_queue=wake_word_queue,
+        tts_engine=jarvis.tts,
+        loop=loop
+    )
+    wake_word_detector.start()
+
+    listener_thread = threading.Thread(target=wake_word_listener, daemon=True)
+    listener_thread.start()
     
     try:
         while True:
-            user_input = input("You> ").strip()
+            user_input = await asyncio.to_thread(input, "You> ")
+            user_input = user_input.strip()
             if not user_input:
                 continue
             if user_input.lower() in ["/exit", "/quit"]:
@@ -160,6 +200,7 @@ async def interactive_mode():
     except KeyboardInterrupt:
         print("\n\nInterrupted!")
     finally:
+        wake_word_detector.stop()
         await jarvis.cleanup()
         print("👋 Systems offline.\n")
 
@@ -223,6 +264,13 @@ def run_command(command: str):
     
     elif command == "help" or command == "8":
         show_help()
+
+    elif command == "gui":
+        print("🚀 Starting JARVIS Desktop App...")
+        app = QApplication(sys.argv)
+        main_win = JarvisDesktopApp()
+        main_win.show()
+        sys.exit(app.exec())
     
     elif command == "0" or command == "exit":
         print("\n👋 Goodbye!\n")
@@ -302,7 +350,7 @@ def main():
     else:
         # No command - show interactive menu
         try:
-            interactive_menu()
+            asyncio.run(interactive_mode())
         except KeyboardInterrupt:
             print("\n\n👋 Goodbye!\n")
 

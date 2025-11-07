@@ -7,11 +7,19 @@
 # Core AI & Model Management
 ollama>=0.1.0
 
+# Web API
+fastapi>=0.104.1
+uvicorn>=0.23.2
+python-multipart>=0.0.6
+
 # Voice Recognition (Local)
 faster-whisper>=0.10.0
 sounddevice>=0.4.6
 numpy>=1.24.0
 openwakeword>=0.5.0
+PyAudio>=0.2.11
+librosa>=0.9.2
+keyboard>=0.13.5
 
 # Text-to-Speech (Local)
 pyttsx3>=2.90
@@ -33,4 +41,5 @@ requests>=2.28.0
 scikit-learn>=1.4.0 # For intent recognition model
 playwright>=1.40.0 # For advanced web automation
 beautifulsoup4>=4.12.2
+openwakeword>=0.5.0
 python-dotenv>=0.21.0

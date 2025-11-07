@@ -20,6 +20,7 @@ import time
 import os
 import sys
 from typing import List, Optional, Tuple, Dict
+from jarvis_turbo_manager import JarvisPersonality
 
 # Add current directory to path for local imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -60,6 +61,12 @@ try:
     APP_CONTROLLER_AVAILABLE = True
 except ImportError:
     APP_CONTROLLER_AVAILABLE = False
+
+try:
+    from jarvis_voice_io import OptimizedVoiceIO
+    VOICE_IO_AVAILABLE = True
+except ImportError:
+    VOICE_IO_AVAILABLE = False
 
 try:
     from jarvis_web_agent import WebAgent
@@ -139,6 +146,8 @@ class JarvisOptimizedCore:
         self.app_scanner = AppManager() if APP_SCANNER_AVAILABLE else None
         self.app_controller = AppController() if APP_CONTROLLER_AVAILABLE else None
         self.web_agent = WebAgent() if WEB_AGENT_AVAILABLE else None
+        self.tts = OptimizedVoiceIO(enabled=enable_voice) if VOICE_IO_AVAILABLE else None
+        self.personality = JarvisPersonality()
         if self.reminder_scheduler:
             self.reminder_scheduler.set_callback(self._on_reminder)
         
@@ -287,24 +296,19 @@ class JarvisOptimizedCore:
             skill_response = await self.skill_manager.handle(user_input, self)
             if skill_response:
                 logger.info("🎯 Handled by skill.")
-                print(f"\n🤖 JARVIS> {skill_response}\n")
                 # if speak: await self.voice.speak(skill_response)
                 return skill_response
 
         # Step 4: Fall back to AI
         if self.turbo:
-            print("\n🤖 JARVIS> ", end="")
             full_response = ""
             try:
                 async for chunk in self._ai_query(user_input, model):
                     content = chunk.get('message', {}).get('content', '')
-                    print(content, end="", flush=True)
                     full_response += content
-                print("\n")
             except Exception as e:
                 logger.error(f"AI stream error: {e}")
                 full_response = "Sorry, I encountered an error."
-                print(full_response)
             
             await self.memory.save(user_input, full_response, "ai_query")
             # if speak: await self.voice.speak(full_response)

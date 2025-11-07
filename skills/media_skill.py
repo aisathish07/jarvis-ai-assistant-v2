@@ -23,7 +23,7 @@ def get_spotify_client():
                                     # The following are read from your environment variables
                                     client_id=os.getenv("SPOTIPY_CLIENT_ID"),
                                     client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-                                    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"))
+                                    redirect_uri="http://127.0.0.1:8888/callback")
         sp = spotipy.Spotify(auth_manager=auth_manager)
         # Test authentication
         sp.current_user()

@@ -10,6 +10,7 @@ class GeneralSkill(BaseSkill):
 
     async def handle(self, text: str, jarvis: Any) -> Optional[str]:
         logger.info(f"Handling general query: {text}")
-        # Use the core AI to answer general questions
-        response = await jarvis.process_query(text, speak=False, stream=False)
-        return response
+        full_response = ""
+        async for chunk in jarvis.turbo.query_with_turbo(prompt=text, system=jarvis.personality.get_system_prompt(), stream=True):
+            full_response += chunk.get('message', {}).get('content', '')
+        return full_response

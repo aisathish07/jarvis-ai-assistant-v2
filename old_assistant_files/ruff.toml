@@ -1,7 +1,0 @@
-line-length = 100
-target-version = "py311"
-
-[lint]
-select = ["E", "F", "I", "W", "C90"]
-ignore = ["E501", "E722", "C901", "E402"]   # allow for now
-exclude = ["attic/", "skills/", "main_standalone.py", "main.py", "command_processor.py", "gui.py", "tts.py", "memory_manager.py", "model_selector.py", "plugin_watcher.py", "wake_word.py"]

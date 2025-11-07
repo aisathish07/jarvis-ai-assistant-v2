@@ -1,79 +1,30 @@
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
-# Virtual environments
-venv/
-env/
-.venv/
-
-# Databases and logs
-*.db
-*.db-wal
-*.db-shm
-*.log
-
-# System and IDE files
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Ollama / local model directories (optional)
-*.bin
-*.gguf
-*.pt
-
-# Auto-generated folders
-comtypes/
-*.egg-info/
-build/
-dist/
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-*.so
 
-# Distribution
+# Environments
+jarvis-venv/
+venv/
+
+# Build artifacts
 build/
-develop-eggs/
+build-python/
 dist/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+anime-jarvis-ai/dist/
+anime-jarvis-ai/dist-python/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Environment
-.env
-.env.local
-
-# Database
-*.db
-*.sqlite3
+# Node
+node_modules/
+anime-jarvis-ai/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Logs
 *.log
+logs/
+
+# Other
+.DS_Store

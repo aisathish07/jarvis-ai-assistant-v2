@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* JARVIS Dark Theme - Darker, More Subtle */
+    --background: 220 20% 8%;
+    --foreground: 210 15% 85%;
+
+    --card: 220 18% 11%;
+    --card-foreground: 210 15% 85%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 210 15% 85%;
+
+    --primary: 195 85% 45%;
+    --primary-foreground: 220 20% 8%;
+
+    --secondary: 220 15% 20%;
+    --secondary-foreground: 210 15% 85%;
+
+    --muted: 220 15% 18%;
+    --muted-foreground: 210 10% 60%;
+
+    --accent: 195 75% 50%;
+    --accent-foreground: 220 20% 8%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 15% 85%;
+
+    --border: 220 15% 20%;
+    --input: 220 18% 14%;
+    --ring: 195 85% 45%;
+
+    --radius: 0.75rem;
+
+    /* JARVIS specific colors */
+    --jarvis-glow: 195 85% 45%;
+    --jarvis-panel: 220 18% 12%;
+    --jarvis-highlight: 195 75% 55%;
+    --jarvis-danger: 0 72% 51%;
+    --jarvis-success: 142 76% 36%;
+    --jarvis-warning: 38 92% 50%;
+    
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 210 15% 85%;
+    --sidebar-primary: 195 85% 45%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 220 15% 16%;
+    --sidebar-accent-foreground: 210 15% 85%;
+    --sidebar-border: 220 15% 20%;
+    --sidebar-ring: 195 85% 45%;
+  }
+
+  .light {
+    /* Light Theme */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 195 85% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 195 75% 50%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 195 85% 45%;
+
+    /* Light theme JARVIS colors */
+    --jarvis-glow: 195 85% 45%;
+    --jarvis-panel: 210 40% 98%;
+    --jarvis-highlight: 195 75% 55%;
+    
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 195 85% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 195 85% 45%;
+  }
+}
+
+@layer utilities {
+  .jarvis-glow {
+    box-shadow: 0 0 15px hsl(var(--jarvis-glow) / 0.2),
+                0 0 30px hsl(var(--jarvis-glow) / 0.1);
+  }
+  
+  .jarvis-glow-text {
+    text-shadow: 0 0 8px hsl(var(--jarvis-glow) / 0.6);
+  }
+  
+  .jarvis-border {
+    border: 1px solid hsl(var(--border));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

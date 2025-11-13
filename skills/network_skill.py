@@ -30,7 +30,7 @@ class Skill(BaseSkill):
         elif "speed" in text:
             return await self._speed_test()
         elif "ip" in text:
-            return self._get_ip_info()
+            return await self._get_ip_info()
         elif "wifi" in text or "wi-fi" in text:
             return self._get_wifi_info()
         elif "check" in text or "connection" in text or "internet" in text:
@@ -84,18 +84,19 @@ class Skill(BaseSkill):
         except Exception:
             return "⚠️ Could not perform speed test (no internet or timeout)."
 
-    def _get_ip_info(self) -> str:
+    async def _get_ip_info(self) -> str:
         """Shows local and public IP address."""
         try:
             hostname = socket.gethostname()
             local_ip = socket.gethostbyname(hostname)
             result = f"💻 Local IP: {local_ip}"
 
-            # Attempt to fetch public IP (non-blocking fallback)
+            # Attempt to fetch public IP asynchronously
             try:
-                import requests
-                public_ip = requests.get("https://api.ipify.org").text
-                result += f"\n🌐 Public IP: {public_ip}"
+                async with aiohttp.ClientSession() as session:
+                    async with session.get("https://api.ipify.org", timeout=3) as resp:
+                        public_ip = await resp.text()
+                        result += f"\n🌐 Public IP: {public_ip}"
             except Exception:
                 result += "\n🌐 Public IP: unavailable (offline mode)."
             return result

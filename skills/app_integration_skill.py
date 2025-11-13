@@ -14,112 +14,37 @@ from jarvis_app_controller import AppController
 logger = logging.getLogger("AI_Assistant.AppIntegrationSkill")
 
 
-class AppIntegrationSkill(BaseSkill):
+class Skill(BaseSkill):
     """
     Skill for opening apps and executing commands within them.
-
-    Notes:
-    - Long-running operations (window focus, typing etc.) are executed with
-      asyncio.to_thread(...) so the assistant's event loop is never blocked.
-    - This skill expects the assistant runtime to provide an 'open_app' callable
-      in self.assistant (dictionary-like) and an optional 'on_async_result' callback
-      to receive async results (string) for display.
     """
 
     name = "app_integration"
+    keywords = [
+        "open", "spotify", "chrome", "discord", "whatsapp", "notepad", "vscode",
+        "play", "search", "send", "type", "save", "google", "browse", "look up",
+        "message", "mute", "pause", "next", "skip", "previous", "back", "volume"
+    ]
 
     def __init__(self):
         super().__init__()
         self.controller = None
         self._controller_loaded = False
+        self.assistant = None
 
-    def _get_controller(self):
-        """Lazy load app controller."""
-        if not self._controller_loaded:
-            try:
-                # instantiate in thread to avoid heavy imports blocking loop if called from async
-                self.controller = AppController()
-                self._controller_loaded = True
-                logger.info("App controller loaded")
-            except Exception as e:
-                logger.exception("Failed to load app controller: %s", e)
-                self.controller = None
-        return self.controller
-
-    def _schedule_async(self, coro) -> str:
+    async def handle(self, text: str, jarvis: Any) -> Optional[str]:
         """
-        Helper to schedule coroutine in current loop and return an immediate placeholder.
-        If assistant provides 'on_async_result' callback it will be invoked when coro completes.
+        Standard skill entry point.
         """
-        loop = None
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # No running loop - run synchronously
-            return asyncio.run(coro)
-
-        async def runner():
-            try:
-                result = await coro
-            except Exception as e:
-                logger.exception("Async task failed: %s", e)
-                result = f"An error occurred: {e}"
-            # dispatch to assistant callback if provided
-            cb = None
-            try:
-                cb = getattr(self, "assistant", {}).get("on_async_result")  # type: ignore
-            except Exception:
-                cb = None
-            if callable(cb):
-                try:
-                    # call in thread so callback can do blocking GUI queue operations if needed
-                    await asyncio.to_thread(cb, result)
-                except Exception:
-                    logger.exception("on_async_result callback failed")
-            else:
-                logger.debug("No on_async_result callback registered; result: %s", result)
-
-        if loop.is_running():
-            loop.create_task(runner())
-            return "Working on that — I'll update you when it's done."
-        else:
-            return asyncio.run(coro)
-
-    def on_command(self, command_text: str, context: Dict[str, Any]) -> Optional[str]:
-        """
-        Entry point for commands from the plugin system.
-        Return a string immediately or schedule async work and return placeholder text.
-        """
-        cmd = command_text.lower()
-        controller = self._get_controller()
-
-        if not controller:
-            return "App controller is currently unavailable."
-
-        # Pattern: "open [app] and [action]"
-        m = re.search(r"open\s+(\w+)\s+and\s+(.+)", cmd, re.I)
-        if m:
-            app_name, action = m.group(1), m.group(2)
-            return self._schedule_async(self._open_and_execute(app_name, action, context))
-
-        # Pattern: "[action] on/in [app]"
-        m = re.search(r"(play|search|send|type|save)\s+(.+?)\s+(?:on|in)\s+(\w+)", cmd, re.I)
-        if m:
-            action_verb, params, app_name = m.group(1), m.group(2), m.group(3)
-            action = f"{action_verb} {params}"
-            return self._schedule_async(self._open_and_execute(app_name, action, context))
-
-        # Direct matchers - schedule as asynchronous tasks (they may need delays / focus)
-        if self._is_spotify_command(cmd):
-            return self._schedule_async(self._handle_spotify_async(cmd))
-        if self._is_chrome_command(cmd):
-            return self._schedule_async(self._handle_chrome_async(cmd))
-        if self._is_discord_command(cmd):
-            return self._schedule_async(self._handle_discord_async(cmd))
-        if self._is_whatsapp_command(cmd):
-            return self._schedule_async(self._handle_whatsapp_async(cmd))
-
-        return None
+        # The original skill expected an 'assistant' object with callbacks.
+        # We can mimic this by attaching the main jarvis instance.
+        self.assistant = jarvis
+        
+        # The original skill had a complex command parser in `on_command`.
+        # We'll call that method to reuse the existing logic.
+        # The `context` dictionary is not fully used here, so we pass a simple one.
+        context = {'source': 'jarvis_core'}
+        return self.on_command(text, context)
 
     # -------------------- Async helpers --------------------
     async def _open_and_execute(self, app_name: str, action: str, context: Dict[str, Any]) -> str:

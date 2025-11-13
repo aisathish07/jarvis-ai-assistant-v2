@@ -1,7 +1,10 @@
-import re, datetime
-from skill_bus import BaseSkill
+import datetime
+from jarvis_skills import BaseSkill
+from typing import Any, Optional
 
 class TimeSkill(BaseSkill):
-    intent_regex = re.compile(r"\btime\b", re.I)
-    def handle(self, match):
+    name = "time"
+    keywords = ["time"]
+
+    async def handle(self, text: str, jarvis: Any) -> Optional[str]:
         return datetime.datetime.now().strftime("%H:%M")

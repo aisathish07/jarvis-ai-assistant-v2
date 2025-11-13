@@ -11,6 +11,14 @@ import json
 import logging
 import os
 import sys
+from urllib.parse import urljoin
+# try to import central config values if available
+try:
+    from jarvis_config import JARVIS_CORE_URL, JARVIS_API_PORT as CONFIG_JARVIS_API_PORT
+except Exception:
+    JARVIS_CORE_URL = None
+    CONFIG_JARVIS_API_PORT = None
+
 from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -28,7 +36,12 @@ from jarvis_plugin_hotreload import PluginHotReloadManager, PluginAPI
 from jarvis_config import Config
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("JARVIS.API")
+logger = logging.getLogger("JARVIS.API.Bridge")
+
+CORE_URL = os.getenv("JARVIS_CORE_URL", JARVIS_CORE_URL or "http://127.0.0.1:8000")
+# Allow override of the bridge listen port from jarvis_config or env
+BRIDGE_PORT = int(os.getenv("JARVIS_API_PORT", str(CONFIG_JARVIS_API_PORT or 8080)))
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Global JARVIS Instance
@@ -394,7 +407,10 @@ async def get_models(request):
     """Get available Ollama models"""
     try:
         async with aiohttp.ClientSession() as session:
-            data = await safe_get(session, f'{Config.OLLAMA_API_URL}/api/tags')
+    # Call the core backend via centralized CORE_URL
+    core_tags_url = urljoin(CORE_URL, "/api/tags")
+    async with session.get(core_tags_url) as resp:
+        data = await resp.json()
             models = [
                 {
                     'name': model['name'],
@@ -530,7 +546,7 @@ def main():
     app.on_cleanup.append(lambda app: asyncio.create_task(cleanup_app(app)))
     
     # Run server
-    port = int(os.getenv('JARVIS_API_PORT', '8080'))
+    port = BRIDGE_PORT
     logger.info(f"🚀 JARVIS API Server starting on http://localhost:{port}")
     logger.info(f"📡 WebSocket endpoint: ws://localhost:{port}/ws")
     

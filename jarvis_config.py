@@ -9,6 +9,13 @@ load_dotenv()
 
 logger = logging.getLogger("AI_Assistant.Config")
 
+# -----------------------
+# Core service URLs (override in .env for different dev/prod setups)
+# JARVIS_CORE_URL: base URL where the main FastAPI/uvicorn core is reachable.
+# JARVIS_API_PORT: default port where the bridge server will listen (kept for convenience).
+JARVIS_CORE_URL = os.getenv("JARVIS_CORE_URL", "http://127.0.0.1:8000")
+JARVIS_API_PORT = int(os.getenv("JARVIS_API_PORT", "8080"))
+# -----------------------
 
 class Config:
     """Enhanced configuration class with better error handling and validation"""
@@ -57,8 +64,6 @@ class Config:
     # API URLs
     LM_STUDIO_API_URL = os.getenv("LM_STUDIO_API_URL", "http://localhost:1234/v1")
     OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
-    JARVIS_CORE_URL = os.getenv("JARVIS_CORE_URL", "http://127.0.0.1:8000")
-    JARVIS_API_PORT = int(os.getenv("JARVIS_API_PORT", "8080"))
 
     # Timeout configurations
     GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "15"))

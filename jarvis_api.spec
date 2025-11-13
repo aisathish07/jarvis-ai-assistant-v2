@@ -3,13 +3,15 @@
 import sys
 import os
 
-# Get the path to the root of the project
+# Get the path to the root of the project (where the .spec file is located)
+spec_root = os.path.dirname(os.path.abspath(sys.argv[0]))
+
 block_cipher = None
 
 # The main script
 a = Analysis(
     ['jarvis_api_bridge.py'],
-    pathex=[os.getcwd()],  # Add project root to path
+    pathex=[spec_root],  # Add project root to path
     binaries=[],
     datas=[
         ('skills', 'skills')  # Bundle the skills directory

@@ -25,7 +25,7 @@ import sounddevice as sd
 
 # --------------- imports from YOUR assistant  ---------------
 from jarvis_config import Config  # gives SAMPLE_RATE etc
-from jarvis_voice_io import OptimizedVoiceIO as TextToSpeech  # optional “Yes?” feedback
+from jarvis_voice_io import OptimizedVoiceIO  # optional “Yes?” feedback
 
 # ------------------------------------------------------------
 
@@ -35,7 +35,7 @@ log = logging.getLogger("AI_Assistant.WakeWord")
 MODEL_PATH = Path(__file__).with_name("models") / "hey_jarvis.onnx"
 SAMPLE_RATE = Config.SAMPLE_RATE  # 16000
 BLOCK_SIZE = 512
-THRESHOLD = 0.65
+THRESHOLD = 0.75
 DEBOUNCE_S = 1.5
 SILENCE_DB = -60
 MEL_SHAPE = (1, 16, 96)
@@ -49,14 +49,14 @@ class WakeWordDetector:
     Runs in its own thread; pushes strings to assistant input_queue.
     """
 
-    def __init__(self, input_queue: queue.Queue, tts_engine: "TextToSpeech | None" = None, loop: asyncio.AbstractEventLoop | None = None) -> None:
+    def __init__(self, input_queue: queue.Queue, tts_engine: "OptimizedVoiceIO | None" = None, loop: asyncio.AbstractEventLoop = None) -> None:
         self.q = input_queue
         self.tts = tts_engine
         self.loop = loop
         self.running = False
+        self.stream: sd.InputStream | None = None
         self.thread: threading.Thread | None = None
         self._hotkey_pressed = False
-        self.paused = False
 
         # Try to load ONNX model
         providers = ["CPUExecutionProvider"]
@@ -92,12 +92,16 @@ class WakeWordDetector:
         log.info("🔇 Wake-word detector stopped")
 
     def pause(self) -> None:
-        self.paused = True
-        log.info("🎤 Wake-word detector paused")
+        """Temporarily stop processing audio."""
+        if self.stream:
+            self.stream.stop()
+        log.debug("🎤 Wake-word audio stream stopped")
 
     def resume(self) -> None:
-        self.paused = False
-        log.info("🎧 Wake-word + hot-key listening …")
+        """Resume processing audio."""
+        if self.stream:
+            self.stream.start()
+        log.debug("🎤 Wake-word audio stream started")
 
     # ----------------------------------------------------------
     #  hot-key callback
@@ -119,17 +123,15 @@ class WakeWordDetector:
 
         window = np.zeros(SAMPLE_RATE * 2, dtype=np.float32)
 
-        with sd.InputStream(
+        self.stream = sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=1,
             blocksize=BLOCK_SIZE,
             dtype="float32",
             callback=callback,
-        ) as stream:
+        )
+        with self.stream as stream:
             while self.running:
-                if self.paused:
-                    time.sleep(0.1)
-                    continue
                 try:
                     chunk = audio_q.get(timeout=0.5).flatten()
                 except queue.Empty:
@@ -192,6 +194,11 @@ class WakeWordDetector:
 
         if self.tts and self.loop:
             try:
-                asyncio.run_coroutine_threadsafe(self.tts.speak("Yes?"), self.loop)
+                loop = self.loop
+                if loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.tts.speak("Yes?"), loop)
+                else:
+                    # This case is less likely in this architecture but safe to have
+                    asyncio.run(self.tts.speak("Yes?"))
             except Exception as e:
-                log.warning(f"TTS feedback failed: {e}")
+                log.warning("TTS feedback failed: %s", e)

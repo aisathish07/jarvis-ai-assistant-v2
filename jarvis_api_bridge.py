@@ -101,44 +101,63 @@ async def websocket_handler(request):
 
 
 async def handle_chat_message(ws: web.WebSocketResponse, data: Dict[str, Any]):
-    """Process chat message and stream response"""
+    """Process chat message with consistent format"""
     try:
         user_message = data.get('message', '')
-        web_search = data.get('webSearch', False)
-        thinking_mode = data.get('thinkingMode', False)
-        model = data.get('model', None)
-        
         if not user_message:
             await ws.send_json({
                 'type': 'error',
-                'message': 'Empty message'
+                'message': 'Empty message',
+                'timestamp': datetime.now().isoformat()
             })
             return
+        
+        # Send acknowledgment
+        await ws.send_json({
+            'type': 'status',
+            'status': 'received',
+            'timestamp': datetime.now().isoformat()
+        })
         
         # Send thinking status
         await ws.send_json({
             'type': 'status',
-            'status': 'thinking'
+            'status': 'thinking',
+            'timestamp': datetime.now().isoformat()
         })
         
-        # Build enhanced prompt with modes
+        # Build prompt
         prompt = user_message
+        web_search = data.get('webSearch', False)
+        thinking_mode = data.get('thinkingMode', False)
+        model = data.get('model', None)
+        
         if thinking_mode:
             prompt = f"[Deep Analysis Mode] {prompt}"
         if web_search:
             prompt = f"[Web Search Enabled] {prompt}"
         
-        # Stream response from JARVIS
+        # Stream response
         full_response = ""
-        async for chunk in server.jarvis_core._ai_query(prompt, model=model):
-            content = chunk.get('message', {}).get('content', '')
-            if content:
-                full_response += content
-                await ws.send_json({
-                    'type': 'chunk',
-                    'content': content,
-                    'full': full_response
-                })
+        try:
+            async for chunk in server.jarvis_core._ai_query(prompt, model=model):
+                content = chunk.get('message', {}).get('content', '')
+                if content:
+                    full_response += content
+                    await ws.send_json({
+                        'type': 'chunk',
+                        'content': content,
+                        'full': full_response,
+                        'timestamp': datetime.now().isoformat()
+                    })
+        except Exception as stream_error:
+            logger.error(f"Streaming error: {stream_error}")
+            await ws.send_json({
+                'type': 'error',
+                'message': f'Streaming failed: {str(stream_error)}',
+                'timestamp': datetime.now().isoformat()
+            })
+            return
         
         # Send completion
         await ws.send_json({
@@ -151,7 +170,8 @@ async def handle_chat_message(ws: web.WebSocketResponse, data: Dict[str, Any]):
         logger.error(f"Error handling chat: {e}", exc_info=True)
         await ws.send_json({
             'type': 'error',
-            'message': str(e)
+            'message': str(e),
+            'timestamp': datetime.now().isoformat()
         })
 
 
@@ -273,21 +293,42 @@ async def delete_plugin_endpoint(request):
 
 
 async def toggle_plugin(request):
-    """Enable/disable a plugin"""
+    """Enable/disable a plugin with actual functionality"""
     try:
         data = await request.json()
         plugin_id = data.get('plugin_id')
         enabled = data.get('enabled', True)
         
-        # TODO: Implement actual plugin enable/disable logic
-        # For now, just return success
+        if not plugin_id:
+            return web.json_response({'error': 'plugin_id required'}, status=400)
         
-        return web.json_response({
-            'success': True,
-            'plugin_id': plugin_id,
-            'enabled': enabled
-        })
+        if not server.jarvis_core or not server.jarvis_core.skill_manager:
+            return web.json_response({'error': 'Skill manager not available'}, status=503)
+        
+        # Actual enable/disable logic
+        if plugin_id in server.jarvis_core.skill_manager.skills:
+            skill = server.jarvis_core.skill_manager.skills[plugin_id]
+            
+            # Add enabled flag to skill if it doesn't exist
+            if not hasattr(skill, '_enabled'):
+                skill._enabled = True
+            
+            skill._enabled = enabled
+            
+            return web.json_response({
+                'success': True,
+                'plugin_id': plugin_id,
+                'enabled': enabled,
+                'message': f"Plugin '{plugin_id}' {'enabled' if enabled else 'disabled'}"
+            })
+        else:
+            return web.json_response({
+                'error': f"Plugin '{plugin_id}' not found",
+                'available_plugins': list(server.jarvis_core.skill_manager.skills.keys())
+            }, status=404)
+            
     except Exception as e:
+        logger.error(f"Toggle plugin error: {e}")
         return web.json_response({'error': str(e)}, status=500)
 
 
@@ -403,7 +444,14 @@ async def load_settings(request):
 
 @web.middleware
 async def cors_middleware(request, handler):
-    """Add CORS headers"""
+    """Improved CORS with origin validation"""
+    origin = request.headers.get('Origin', '')
+    allowed_origins = [
+        'http://localhost:5173',  # Vite dev server
+        'http://localhost:3000',  # Alternative dev port
+        'http://127.0.0.1:5173',
+    ]
+    
     if request.method == 'OPTIONS':
         response = web.Response()
     else:
@@ -412,9 +460,11 @@ async def cors_middleware(request, handler):
         except web.HTTPException as ex:
             response = ex
     
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    if origin in allowed_origins or origin == '':
+        response.headers['Access-Control-Allow-Origin'] = origin or '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
     
     return response
 

@@ -21,6 +21,7 @@ import os
 import sys
 from typing import List, Optional, Tuple, Dict
 from jarvis_turbo_manager import JarvisPersonality
+from jarvis_config import Config
 
 # Add current directory to path for local imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -249,8 +250,17 @@ class JarvisOptimizedCore:
         summary = await self.memory.get_summary()
         prompt = self._build_prompt(user_input, context, summary)
         
-        async for chunk in self.turbo.query_with_turbo(prompt=prompt, model=model, system="You are JARVIS, a helpful AI assistant.", stream=True):
-            yield chunk
+        if Config.GAMING_MODE:
+            logger.info("🎮 Gaming Mode Active: Routing to Gemini API.")
+            if not Config.GEMINI_API_KEY:
+                logger.error("Gaming Mode is on, but GEMINI_API_KEY is not set.")
+                yield {"error": "Gaming Mode is on, but the Gemini API key is not configured."}
+                return
+            async for chunk in self.turbo.query_gemini(prompt=prompt, stream=True):
+                yield chunk
+        else:
+            async for chunk in self.turbo.query_with_turbo(prompt=prompt, model=model, system="You are JARVIS, a helpful AI assistant.", stream=True):
+                yield chunk
 
     async def process_query(self, user_input: str, speak: bool = True, model: Optional[str] = None, stream: bool = False) -> str:
         """Main query processing pipeline."""

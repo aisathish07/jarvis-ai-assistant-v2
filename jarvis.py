@@ -175,8 +175,7 @@ async def interactive_mode():
             except queue.Empty:
                 continue
 
-    loop = asyncio.get_event_loop()
-    wake_word_detector = WakeWordDetector(
+        loop = asyncio.get_event_loop()    wake_word_detector = WakeWordDetector(
         input_queue=wake_word_queue,
         tts_engine=jarvis.tts,
         loop=loop

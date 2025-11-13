@@ -20,6 +20,7 @@ import time
 import gc
 import os
 import re
+import base64
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -30,12 +31,15 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import aiohttp
 import psutil
+import google.generativeai as genai
+from jarvis_config import Config
 
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(levelname)s %(name)s: %(message)s"
 )
 logger = logging.getLogger("Jarvis.Turbo")
+
 
 # ============================================================================
 # PROFILE DEFINITIONS - OPTIMIZED FOR RTX 3050 4GB
@@ -571,9 +575,10 @@ class OptimizedOllamaClient:
         system: Optional[str] = None,
         max_tokens: int = 1024,
         temperature: float = 0.7,
-        stream: bool = False
+        stream: bool = False,
+        images: Optional[List[str]] = None # Added images parameter
     ):
-        """Query Ollama with retries, now supports streaming."""
+        """Query Ollama with retries, now supports streaming and image input."""
         await self._ensure_session()
         
         # Truncate long prompts
@@ -594,7 +599,22 @@ class OptimizedOllamaClient:
         
         if system:
             payload["messages"].append({"role": "system", "content": system})
-        payload["messages"].append({"role": "user", "content": prompt})
+        
+        user_message_content = {"role": "user", "content": prompt}
+        if images:
+            encoded_images = []
+            for img_path in images:
+                try:
+                    with open(img_path, "rb") as f:
+                        encoded_images.append(base64.b64encode(f.read()).decode("utf-8"))
+                except FileNotFoundError:
+                    logger.error(f"Image file not found: {img_path}")
+                except Exception as e:
+                    logger.error(f"Error encoding image {img_path}: {e}")
+            if encoded_images:
+                user_message_content["images"] = encoded_images
+        
+        payload["messages"].append(user_message_content)
         
         try:
             start = time.perf_counter()
@@ -618,13 +638,29 @@ class OptimizedOllamaClient:
         except Exception as e:
             logger.error(f"Query error: {e}")
             yield {"error": f"Error: {str(e)[:100]}"}
-    
+            
+    async def unload_model_api(self, model_name: str):
+        """Forcefully unload a model using Ollama's DELETE API."""
+        await self._ensure_session()
+        payload = {"name": model_name}
+        logger.info(f"Attempting to unload model {model_name} via API...")
+        try:
+            async with self._session.delete("http://localhost:11434/api/delete", json=payload) as resp:
+                if resp.status == 200:
+                    logger.info(f"✅ Successfully unloaded model {model_name} via API.")
+                    return True
+                else:
+                    logger.error(f"Failed to unload model {model_name} via API. Status: {resp.status}, Response: {await resp.text()}")
+                    return False
+        except Exception as e:
+            logger.error(f"Error calling unload API for {model_name}: {e}")
+            return False
+
     async def close(self):
         """Close session"""
         if self._session and not self._session.closed:
             await self._session.close()
             logger.debug("Ollama client closed")
-
 # ============================================================================
 # TURBO MANAGER - COMPLETE
 # ============================================================================
@@ -680,9 +716,10 @@ class OptimizedTurboManager:
         prompt: str,
         model: Optional[str] = None,
         system: Optional[str] = None,
-        stream: bool = False
+        stream: bool = False,
+        images: Optional[List[str]] = None # Added images parameter
     ):
-        """Smart query with optimal model selection, now supports streaming."""
+        """Smart query with optimal model selection, now supports streaming and image input."""
         start_time = time.perf_counter()
         
         # Auto-select model if not specified
@@ -708,21 +745,51 @@ class OptimizedTurboManager:
         self._query_stats["model_usage"][model] = self._query_stats["model_usage"].get(model, 0) + 1
         
         # Execute query and stream results
-        async for chunk in self.ollama_client.query(model, prompt, system, max_tokens=1024, stream=stream):
+        async for chunk in self.ollama_client.query(model, prompt, system, max_tokens=1024, stream=stream, images=images):
             yield chunk
         
         # Update stats
         elapsed = (time.perf_counter() - start_time) * 1000
         self._query_stats["total_queries"] += 1
         self._query_stats["total_time"] += elapsed
-        
         logger.info(f"⚡ Query #{self._query_stats['total_queries']}: {elapsed:.0f}ms with {model} on {device.upper()}")
-    
+
+    async def unload_all_models(self):
+        """Forcefully unload all currently loaded local models."""
+        logger.info("Unloading all local models...")
+        loaded_models = list(self.model_cache.loaded_models.keys())
+        for model in loaded_models:
+            await self.model_cache.unload_model(model)
+            await self.ollama_client.unload_model_api(model)
+        logger.info("✅ All local models have been unloaded.")
+
+    async def query_gemini(self, prompt: str, stream: bool = True):
+        """Query the Gemini API and stream the response in a compatible format."""
+        if not Config.GEMINI_API_KEY:
+            logger.error("GEMINI_API_KEY is not set.")
+            yield {"error": "Gemini API key is not configured."}
+            return
+
+        try:
+            genai.configure(api_key=Config.GEMINI_API_KEY)
+            model = genai.GenerativeModel('gemini-pro')
+            
+            logger.info("Querying Gemini API...")
+            response = await model.generate_content_async(prompt, stream=stream)
+
+            async for chunk in response:
+                if chunk.text:
+                    # Yield in a format compatible with the Ollama client response
+                    yield {'message': {'content': chunk.text}}
+
+        except Exception as e:
+            logger.error(f"Error querying Gemini API: {e}")
+            yield {"error": f"An error occurred with the Gemini API: {e}"}
+
     async def switch_profile(self, profile: TurboProfile) -> str:
         """Switch performance profile"""
         self.current_profile = profile
         self.profile_config = PROFILES[profile]
-        
         # Unload all models
         for model in list(self.model_cache.loaded_models.keys()):
             await self.model_cache.unload_model(model)

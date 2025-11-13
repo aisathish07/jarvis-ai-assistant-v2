@@ -34,7 +34,6 @@ class SkillManager:
         self.skills: Dict[str, BaseSkill] = {}
         self.config_manager = config_manager
         self.intent_model = None
-        self.load_skills()
         self.load_intent_model()
 
     def load_intent_model(self):

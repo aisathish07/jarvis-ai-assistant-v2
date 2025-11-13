@@ -131,6 +131,7 @@ class Config:
     ENABLE_AUTO_UPDATES = bool(
         os.getenv("ENABLE_AUTO_UPDATES", "false").lower() in {"1", "true", "yes"}
     )
+    GAMING_MODE = bool(os.getenv("GAMING_MODE", "false").lower() in {"1", "true", "yes"})
 
     @classmethod
     def setup_directories(cls):

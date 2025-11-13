@@ -32,3 +32,5 @@ logs/
 
 # Other
 .DS_Store
+copy_of_automatic_model_training_simple.py
+old_files/

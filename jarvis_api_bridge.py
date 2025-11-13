@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from jarvis_core_optimized import JarvisOptimizedCore
 from jarvis_skills import SkillManager
 from jarvis_plugin_hotreload import PluginHotReloadManager, PluginAPI
+from jarvis_config import Config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("JARVIS.API")
@@ -174,6 +175,20 @@ async def handle_chat_message(ws: web.WebSocketResponse, data: Dict[str, Any]):
             'timestamp': datetime.now().isoformat()
         })
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Utility Functions
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def safe_get(session, url, **kwargs):
+    """Wrapper for session.get with logging and error handling."""
+    try:
+        async with session.get(url, **kwargs) as resp:
+            resp.raise_for_status()  # Raise an exception for bad status codes
+            return await resp.json()
+    except Exception as e:
+        logger.exception("Failed to GET %s", url)
+        raise
 
 # ═══════════════════════════════════════════════════════════════════════════
 # REST API Endpoints
@@ -378,22 +393,17 @@ async def upload_file(request):
 async def get_models(request):
     """Get available Ollama models"""
     try:
-        # Query Ollama for available models
         async with aiohttp.ClientSession() as session:
-            async with session.get('http://localhost:11434/api/tags') as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    models = [
-                        {
-                            'name': model['name'],
-                            'size': model.get('size', 0),
-                            'modified': model.get('modified_at', '')
-                        }
-                        for model in data.get('models', [])
-                    ]
-                    return web.json_response({'models': models})
-                else:
-                    return web.json_response({'models': []}, status=503)
+            data = await safe_get(session, f'{Config.OLLAMA_API_URL}/api/tags')
+            models = [
+                {
+                    'name': model['name'],
+                    'size': model.get('size', 0),
+                    'modified': model.get('modified_at', '')
+                }
+                for model in data.get('models', [])
+            ]
+            return web.json_response({'models': models})
     except Exception as e:
         logger.error(f"Error fetching models: {e}")
         return web.json_response({'error': str(e)}, status=500)

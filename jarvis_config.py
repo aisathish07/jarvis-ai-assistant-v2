@@ -57,6 +57,8 @@ class Config:
     # API URLs
     LM_STUDIO_API_URL = os.getenv("LM_STUDIO_API_URL", "http://localhost:1234/v1")
     OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
+    JARVIS_CORE_URL = os.getenv("JARVIS_CORE_URL", "http://127.0.0.1:8000")
+    JARVIS_API_PORT = int(os.getenv("JARVIS_API_PORT", "8080"))
 
     # Timeout configurations
     GEMINI_TIMEOUT = int(os.getenv("GEMINI_TIMEOUT", "15"))
